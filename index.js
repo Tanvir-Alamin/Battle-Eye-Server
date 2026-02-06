@@ -26,7 +26,12 @@ async function run() {
     await client.connect();
     const battleEye = client.db("BattleEye");
     const contest = battleEye.collection("Contest");
-    
+
+    app.get("/all-contests", async (req, res) => {
+      const cursor = contest.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
 
     await client.db("BattleEye").command({ ping: 1 });
     console.log(
