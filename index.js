@@ -33,6 +33,13 @@ async function run() {
       res.send(result);
     });
 
+    app.post("/all-contests", async (req, res) => {
+      const contestData = req.body;
+      const result = await contest.insertOne(contestData);
+      res.send(result);
+      console.log("added successful");
+    });
+
     await client.db("BattleEye").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
