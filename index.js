@@ -60,10 +60,11 @@ async function run() {
               product_data: {
                 name: paymentInfo?.name,
                 description: paymentInfo?.mode,
-                image: [paymentInfo.image],
+                images: [paymentInfo.image],
               },
               unit_amount: paymentInfo.entryFee * 100,
             },
+            quantity: 1,
           },
         ],
         customer_email: paymentInfo.buyerMail,
@@ -72,7 +73,19 @@ async function run() {
           contestId: paymentInfo?.contestId,
           buyer: paymentInfo.buyer,
         },
+        success_url: `${process.env.CLIENT_DOMAIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.CLIENT_DOMAIN}/details/${paymentInfo.contestId}`,
       });
+      res.send({ url: session.url });
+    });
+
+    // sending the session id
+
+    app.post("/payment-success", async (req, res) => {
+      const { sessionId } = req.body;
+      console.log(sessionId);
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      console.log(session);
     });
 
     await client.db("BattleEye").command({ ping: 1 });
