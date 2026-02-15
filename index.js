@@ -5,6 +5,24 @@ const cors = require("cors");
 const port = 3000;
 require("dotenv").config();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const admin = require("firebase-admin");
+
+const decoded = Buffer.from(process.env.FB_SERVICE_KEY, "base64").toString(
+  "utf-8",
+);
+const serviceAccount = JSON.parse(decoded);
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+// middleware
+app.use(
+  cors({
+    origin: process.env.CLIENT_DOMAIN,
+    credentials: true,
+    optionSuccessStatus: 200,
+  }),
+);
+app.use(express.json());
 
 // jwt middlewares
 const verifyJWT = async (req, res, next) => {
@@ -32,8 +50,6 @@ const client = new MongoClient(uri, {
   },
 });
 
-app.use(cors());
-app.use(express.json());
 app.get("/", (req, res) => {
   res.send("hello world");
 });
@@ -45,6 +61,7 @@ async function run() {
     const contest = battleEye.collection("Contest");
     const participated = battleEye.collection("participated");
     const userCollection = battleEye.collection("User");
+    const creatorRequestCollection = battleEye.collection("Creator-Request");
 
     app.get("/all-contests", async (req, res) => {
       const cursor = contest.find();
@@ -152,9 +169,10 @@ async function run() {
         );
       }
     });
-    app.get("/dashboard/participated-contests/:email", async (req, res) => {
-      const email = req.params.email;
-      const result = await participated.find({ buyerMail: email }).toArray();
+    app.get("/dashboard/participated-contests", verifyJWT, async (req, res) => {
+      const result = await participated
+        .find({ buyerMail: req.tokenEmail })
+        .toArray();
       res.send(result);
     });
     app.get("/dashboard/manage-contests/:email", async (req, res) => {
@@ -201,10 +219,22 @@ async function run() {
 
     // user role
 
-    app.get("/user/role/:email", async (req, res) => {
-      const email = req.params.email;
-      const result = await userCollection.findOne({ email });
+    app.get("/user/role", verifyJWT, async (req, res) => {
+      console.log(req.tokenEmail);
+      const result = await userCollection.findOne({ email: req.tokenEmail });
       res.send({ role: result?.role });
+    });
+
+    app.get("/dashboard/manage-user", async (req, res) => {
+      const result = await userCollection.find().toArray();
+      res.send(result);
+    });
+
+    // save become a creator
+
+    app.post("/become-creator", verifyJWT, async (req, res) => {
+      const email = req.tokenEmail;
+      const result = await creatorRequestCollection.insertOne({ email });
     });
 
     await client.db("BattleEye").command({ ping: 1 });
