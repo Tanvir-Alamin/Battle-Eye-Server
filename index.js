@@ -6,6 +6,22 @@ const port = 3000;
 require("dotenv").config();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
+// jwt middlewares
+const verifyJWT = async (req, res, next) => {
+  const token = req?.headers?.authorization?.split(" ")[1];
+  console.log(token);
+  if (!token) return res.status(401).send({ message: "Unauthorized Access!" });
+  try {
+    const decoded = await admin.auth().verifyIdToken(token);
+    req.tokenEmail = decoded.email;
+    console.log(decoded);
+    next();
+  } catch (err) {
+    console.log(err);
+    return res.status(401).send({ message: "Unauthorized Access!", err });
+  }
+};
+
 const uri = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@tanvircluster.9cveqw4.mongodb.net/?appName=TanvirCluster`;
 
 const client = new MongoClient(uri, {
@@ -28,6 +44,7 @@ async function run() {
     const battleEye = client.db("BattleEye");
     const contest = battleEye.collection("Contest");
     const participated = battleEye.collection("participated");
+    const userCollection = battleEye.collection("User");
 
     app.get("/all-contests", async (req, res) => {
       const cursor = contest.find();
@@ -162,6 +179,32 @@ async function run() {
       } else {
         res.send({ success: false, message: "Contest not found" });
       }
+    });
+
+    // save or update user
+    app.post("/user", async (req, res) => {
+      const userData = req.body;
+      userData.created_at = new Date().toISOString();
+      userData.last_loggedIn = new Date().toISOString();
+      userData.role = "Gamer";
+      const quarry = { email: userData.email };
+      const userExists = await userCollection.findOne(quarry);
+      if (userExists) {
+        const result = await userCollection.updateOne(quarry, {
+          $set: { last_loggedIn: new Date().toISOString() },
+        });
+        return res.send(result);
+      }
+      const result = await userCollection.insertOne(userData);
+      res.send(result);
+    });
+
+    // user role
+
+    app.get("/user/role/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await userCollection.findOne({ email });
+      res.send({ role: result?.role });
     });
 
     await client.db("BattleEye").command({ ping: 1 });
