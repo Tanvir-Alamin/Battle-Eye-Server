@@ -220,7 +220,6 @@ async function run() {
     // user role
 
     app.get("/user/role", verifyJWT, async (req, res) => {
-      console.log(req.tokenEmail);
       const result = await userCollection.findOne({ email: req.tokenEmail });
       res.send({ role: result?.role });
     });
@@ -234,8 +233,33 @@ async function run() {
 
     app.post("/become-creator", verifyJWT, async (req, res) => {
       const email = req.tokenEmail;
+      const isExist = await creatorRequestCollection.findOne({ email });
+      if (isExist)
+        return res.status(409).send({ message: "Already Requested" });
       const result = await creatorRequestCollection.insertOne({ email });
+      res.send(result);
     });
+
+    app.get("/dashboard/creator-request", verifyJWT, async (req, res) => {
+      const result = await creatorRequestCollection.find().toArray();
+      res.send(result);
+    });
+
+    // update role
+
+    app.patch("/update-role", verifyJWT, async (req, res) => {
+      const { email, role } = req.body;
+      const result = await userCollection.updateOne(
+        { email },
+        { $set: { role } },
+      );
+      res.send(result);
+      await creatorRequestCollection.deleteOne({ email });
+    });
+
+    //
+    //
+    //
 
     await client.db("BattleEye").command({ ping: 1 });
     console.log(
