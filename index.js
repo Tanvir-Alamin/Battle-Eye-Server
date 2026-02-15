@@ -32,7 +32,6 @@ const verifyJWT = async (req, res, next) => {
   try {
     const decoded = await admin.auth().verifyIdToken(token);
     req.tokenEmail = decoded.email;
-    console.log(decoded);
     next();
   } catch (err) {
     console.log(err);
@@ -56,7 +55,8 @@ app.get("/", (req, res) => {
 
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
+
     const battleEye = client.db("BattleEye");
     const contest = battleEye.collection("Contest");
     const participated = battleEye.collection("participated");
@@ -138,7 +138,6 @@ async function run() {
       const contestData = await contest.findOne({
         _id: new ObjectId(session.metadata.contestId),
       });
-      console.log(session);
 
       if (session.status === "complete" && contestData) {
         const existingOrder = await participated.findOne({
@@ -180,6 +179,7 @@ async function run() {
       const result = await contest.find({ email: email }).toArray();
       res.send(result);
     });
+
     app.patch("/update/:id", async (req, res) => {
       const id = req.params.id;
       const updatedData = req.body;
@@ -187,6 +187,18 @@ async function run() {
       const result = await contest.updateOne(quarry, { $set: updatedData });
       res.send(result);
     });
+    app.patch("/update/user-role/:id", async (req, res) => {
+      const id = req.params.id;
+      const updatedData = req.body;
+
+      const result = await userCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: updatedData },
+      );
+
+      res.send(result);
+    });
+
     app.delete("/delete-contest/:id", async (req, res) => {
       const id = req.params.id;
 
@@ -225,7 +237,11 @@ async function run() {
     });
 
     app.get("/dashboard/manage-user", async (req, res) => {
-      const result = await userCollection.find().toArray();
+      const adminEmail = req.tokenEmail;
+
+      const result = await userCollection
+        .find({ email: { $ne: adminEmail } })
+        .toArray();
       res.send(result);
     });
 
@@ -233,6 +249,7 @@ async function run() {
 
     app.post("/become-creator", verifyJWT, async (req, res) => {
       const email = req.tokenEmail;
+
       const isExist = await creatorRequestCollection.findOne({ email });
       if (isExist)
         return res.status(409).send({ message: "Already Requested" });
@@ -240,8 +257,9 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/dashboard/creator-request", verifyJWT, async (req, res) => {
+    app.get("/dashboard/creator-request", async (req, res) => {
       const result = await creatorRequestCollection.find().toArray();
+
       res.send(result);
     });
 
@@ -261,7 +279,7 @@ async function run() {
     //
     //
 
-    await client.db("BattleEye").command({ ping: 1 });
+    // await client.db("BattleEye").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
     );
