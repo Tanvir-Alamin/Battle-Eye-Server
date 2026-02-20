@@ -55,19 +55,34 @@ app.get("/", (req, res) => {
 
 async function run() {
   try {
-    // await client.connect();
+    await client.connect();
 
     const battleEye = client.db("BattleEye");
     const contest = battleEye.collection("Contest");
     const participated = battleEye.collection("participated");
     const userCollection = battleEye.collection("User");
+    const contestApproval = battleEye.collection("Contest-Approval");
     const creatorRequestCollection = battleEye.collection("Creator-Request");
 
+    // action start here ----- >>>>>>>>>
+
+    // Approved contest show here
+
     app.get("/all-contests", async (req, res) => {
-      const cursor = contest.find();
+      const cursor = contest.find({ status: "approved" });
       const result = await cursor.toArray();
       res.send(result);
     });
+
+    //  pending contest here
+
+    app.get("/pending-contests", async (req, res) => {
+      const cursor = contest.find({ status: "pending" });
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    // contest details page data
 
     app.get("/details/:id", async (req, res) => {
       const id = req.params.id;
@@ -79,7 +94,16 @@ async function run() {
       const contestData = req.body;
       const result = await contest.insertOne(contestData);
       res.send(result);
-      console.log("added successful");
+      console.log( "added successful");
+    });
+
+    app.patch("/approve-contest/:id", async (req, res) => {
+      const id = req.params.id;
+      const quarry = await contest.findOne({ _id: new ObjectId(id) });
+      const result = await contest.updateOne(quarry, {
+        $set: { status: "approved" },
+      });
+      res.send(result);
     });
 
     // Payment Option Stripe
@@ -279,7 +303,7 @@ async function run() {
     //
     //
 
-    // await client.db("BattleEye").command({ ping: 1 });
+    await client.db("BattleEye").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
     );
